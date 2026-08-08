@@ -5,8 +5,8 @@ import asyncio
 from openai import AsyncOpenAI
 
 # 1. PUNE PAROLELE NOI AICI 
-DISCORD_TOKEN = "MTUzNTcwMTIzNjY4MTI4NTcwMg.GmVxpJ.0D7F_2d5kQ387MAYmI_8Gz6PnFyrL7hWD2tdns"
-OPENAI_API_KEY = "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"
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # 2. ID-ul canalului tau de voce
 ID_CANAL_VOCE = 1504452767467573361
