@@ -13,7 +13,10 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 ID_CANAL_VOCE = 1504452767467573361
 
-ai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+ai_client = AsyncOpenAI(
+    api_key=OPENAI_API_KEY,
+    base_url="https://openrouter.ai/api/v1" # Asta e magia care te scapă de cenzură!
+)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -196,7 +199,7 @@ async def on_message(message):
                 istoric_paraschiv[user_id] = istoric_paraschiv[user_id][-LIMITA_MESAJE:]
                 
                 response = await ai_client.chat.completions.create(
-                    model="gpt-5.4-mini",
+                   model="cognitivecomputations/dolphin-mixtral-8x7b", # Unul dintre cele mai bune modele necenzurate,
                     messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id]
                 )
                 raspuns_ai = response.choices[0].message.content
@@ -247,7 +250,7 @@ async def on_message(message):
 
                 try:
                     completion = await ai_client.chat.completions.create(
-                        model="gpt-4o-mini",
+                       model="cognitivecomputations/dolphin-mixtral-8x7b", # Unul dintre cele mai bune modele necenzurate,
                         messages=chat_sessions[npc_key],
                         temperature=0.8,
                         max_tokens=150
