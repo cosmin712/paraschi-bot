@@ -198,7 +198,7 @@ async def on_message(message):
                 istoric_paraschiv[user_id] = istoric_paraschiv[user_id][-LIMITA_MESAJE:]
                 
                 response = await ai_client.chat.completions.create(
-                   model="meta-llama/llama-3-8b-instruct:free",
+                   model="nvidia/nemotron-3-ultra-550b-a55b:free",
                     messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id]
                 )
                 raspuns_ai = response.choices[0].message.content
@@ -249,7 +249,7 @@ async def on_message(message):
 
                 try:
                     completion = await ai_client.chat.completions.create(
-                       model="meta-llama/llama-3-8b-instruct:free",
+                       model="nvidia/nemotron-3-ultra-550b-a55b:free",
                         messages=chat_sessions[npc_key],
                         temperature=0.8,
                         max_tokens=150
