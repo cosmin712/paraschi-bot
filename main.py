@@ -4,25 +4,25 @@ import os
 import asyncio
 import sqlite3
 from openai import AsyncOpenAI
+from gtts import gTTS
 
 # ==========================================
 # ⚙️ CONFIGURAȚIE
 # ==========================================
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN") # Asigură-te că îl ai în sistem sau pune-l ca string 'TOKEN_AICI'
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 ID_CANAL_VOCE = 1504452767467573361
-ai_client = AsyncOpenAI(
-    api_key=OPENAI_API_KEY,
-    base_url="https://openrouter.ai/api/v1" # Asta e magia care te scapă de cenzură!
-)
+
+# Folosim direct OpenAI oficial pentru GPT-4o-mini (fără OpenRouter, zero erori 404)
+ai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Memoria globală (separată pentru fiecare personalitate)
+# Memoria globală
 chat_sessions = {}
 istoric_paraschiv = {}
 LIMITA_MESAJE = 40
@@ -33,7 +33,41 @@ IMG_TAVERN_IN = "https://cdn.discordapp.com/attachments/1472611408830267462/tave
 IMG_QUEST_OUT = "https://cdn.discordapp.com/attachments/1472611408830267462/quest_board.jpg"
 
 # ==========================================
-# 🗄️ FUNCȚII BAZA DE DATE (Pentru Garrick & Angela)
+# 🎙️ FUNCȚIE AUDIO (TEXT TO SPEECH)
+# ==========================================
+async def vorbeste_pe_voce(bot_instance, text_spus):
+    canal_voce = bot_instance.get_channel(ID_CANAL_VOCE)
+    if not canal_voce:
+        return
+
+    voice_client = discord.utils.get(bot_instance.voice_clients, guild=canal_voce.guild)
+    if not voice_client or not voice_client.is_connected():
+        try:
+            voice_client = await canal_voce.connect(timeout=60.0)
+        except Exception as e:
+            print(f"Eroare conectare voce: {e}")
+            return
+
+    try:
+        text_curat = ''.join(c for c in text_spus if c.isalnum() or c.isspace() or c in ",.?!")
+        if not text_curat.strip():
+            return
+
+        tts = gTTS(text=text_curat, lang='ro', slow=False)
+        fisier_audio = "paraschiv_vorbeste.mp3"
+        tts.save(fisier_audio)
+
+        if voice_client.is_playing():
+            voice_client.stop()
+
+        audio_source = discord.FFmpegPCMAudio(fisier_audio)
+        voice_client.play(audio_source)
+
+    except Exception as e:
+        print(f"Eroare la redarea audio: {e}")
+
+# ==========================================
+# 🗄️ FUNCȚII BAZA DE DATE
 # ==========================================
 def get_player_info(user_id):
     try:
@@ -124,8 +158,11 @@ async def on_voice_state_update(member, before, after):
     if member == bot.user and after.channel is None:
         canal = bot.get_channel(ID_CANAL_VOCE)
         if canal:
-            await asyncio.sleep(2)
-            await canal.connect()
+            await asyncio.sleep(5)
+            try:
+                await canal.connect(timeout=60.0)
+            except Exception as e:
+                print(f"Eroare la reconectare voce: {e}")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -197,17 +234,24 @@ async def on_message(message):
                 istoric_paraschiv[user_id].append({"role": "user", "content": f"{message.author.name}: {mesaj_curat}"})
                 istoric_paraschiv[user_id] = istoric_paraschiv[user_id][-LIMITA_MESAJE:]
                 
+                # Folosim direct gpt-4o-mini de la OpenAI (rapid, ieftin și nu dă niciodată erori de rețea)
                 response = await ai_client.chat.completions.create(
-                   model="gryphe/mythomax-l2-13b:free",
-                    messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id]
+                    model="gpt-5.4-mini",
+                    messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id],
+                    temperature=0.8
                 )
                 raspuns_ai = response.choices[0].message.content
+                
                 istoric_paraschiv[user_id].append({"role": "assistant", "content": raspuns_ai})
                 await message.reply(raspuns_ai)
+
+                # 🎙️ Trimitem răspunsul text direct pe canalul de voice!
+                await vorbeste_pe_voce(bot, raspuns_ai)
+
             except Exception as e:
-                print(f"Eroare Paraschiv: {e}")
-                await message.reply("🧠 Bro, m-am pierdut în gânduri. Ce ziceai?")
-        return # Ieșim, să nu ruleze și restul
+                print(f"Eroare fatală Paraschiv: {e}")
+                await message.reply("🧠 (Sistem suprasolicitat. Mai zi o dată!)")
+        return
 
     # --- 2. MODUL ROLEPLAY (Garrick & Angela) ---
     if isinstance(message.channel, discord.Thread):
@@ -235,10 +279,18 @@ async def on_message(message):
 
                 if is_tavern:
                     npc_key = f"{user_id}_garrick"
-                    instructiuni = f"You are Garrick, 28, tavern keeper. Context: Talking to {p_info}. RULE 1: If 'woman', be flirty. If 'man', be a 'bro'. RULE 2: Mirror user attitude. RULE 3: Use asterisks for physical actions. Max 3 sentences."
+                    instructiuni = (
+                        f"You are Garrick, 28, a rugged, savage tavern keeper. Context: Talking to {p_info}. "
+                        f"RULE 1: If 'woman', be an aggressive flirt. If 'man', be a sarcastic bro. "
+                        f"RULE 2: Use asterisks for actions (*slams a mug on the bar*). Max 3 sentences."
+                    )
                 else:
                     npc_key = f"{user_id}_angela"
-                    instructiuni = f"You are Angela, 28, quest giver. Context: Talking to {p_info}. RULE 1: If 'man', be flirty. If 'woman', be besties. RULE 2: Mirror user attitude. RULE 3: Use asterisks for physical actions. Max 3 sentences."
+                    instructiuni = (
+                        f"You are Angela, 28, a cynical quest giver. Context: Talking to {p_info}. "
+                        f"RULE 1: If 'man', be a sarcastic flirt. If 'woman', be a chaotic bestie. "
+                        f"RULE 2: Use asterisks for actions (*cleans a dagger*). Max 3 sentences."
+                    )
 
                 if npc_key not in chat_sessions:
                     chat_sessions[npc_key] = [{"role": "system", "content": instructiuni}]
@@ -249,16 +301,17 @@ async def on_message(message):
 
                 try:
                     completion = await ai_client.chat.completions.create(
-                       model="gryphe/mythomax-l2-13b:free",
+                        model="gpt-5.4-mini",
                         messages=chat_sessions[npc_key],
                         temperature=0.8,
                         max_tokens=150
                     )
                     reply = completion.choices[0].message.content
-                    chat_sessions[npc_key].append({"role": "assistant", "content": reply})
-                    await message.reply(reply)
                 except Exception as e:
                     print(f"Eroare AI NPC: {e}")
-                    await message.reply("*(NPC-ul pare distras, încearcă din nou)*")
+                    reply = "*(NPC-ul este distras. Mai spune o dată!)*"
+
+                chat_sessions[npc_key].append({"role": "assistant", "content": reply})
+                await message.reply(reply)
 
 bot.run(DISCORD_TOKEN)
