@@ -33,7 +33,7 @@ IMG_TAVERN_IN = "https://cdn.discordapp.com/attachments/1472611408830267462/tave
 IMG_QUEST_OUT = "https://cdn.discordapp.com/attachments/1472611408830267462/quest_board.jpg"
 
 # ==========================================
-# 🎙️ FUNCȚIE AUDIO (TEXT TO SPEECH)
+# 🎙️ FUNCȚIE AUDIO (TEXT TO SPEECH) - TRUCUL SUPREM
 # ==========================================
 async def vorbeste_pe_voce(bot_instance, text_spus):
     canal_voce = bot_instance.get_channel(ID_CANAL_VOCE)
@@ -60,7 +60,14 @@ async def vorbeste_pe_voce(bot_instance, text_spus):
         if voice_client.is_playing():
             voice_client.stop()
 
-        audio_source = discord.FFmpegPCMAudio(fisier_audio)
+        # Verificăm dacă există ffmpeg în sistem, altfel căutăm calea comună sau folosim alternativa
+        executable_path = "ffmpeg"
+        if os.path.exists("/usr/bin/ffmpeg"):
+            executable_path = "/usr/bin/ffmpeg"
+        elif os.path.exists("/usr/local/bin/ffmpeg"):
+            executable_path = "/usr/local/bin/ffmpeg"
+
+        audio_source = discord.FFmpegPCMAudio(fisier_audio, executable=executable_path)
         voice_client.play(audio_source)
 
     except Exception as e:
