@@ -3,5 +3,4 @@ openai
 PyNaCl
 python-dotenv
 ffmpeg
-apt.txt
 gTTS
