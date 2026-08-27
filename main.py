@@ -322,25 +322,26 @@ async def on_message(message):
                     chat_sessions[npc_key] = [chat_sessions[npc_key][0]] + chat_sessions[npc_key][-10:]
 
                 try:
-                    completion = await ai_client.chat.completions.create(
-                        model=MODEL_AI,
-                        messages=chat_sessions[npc_key],
-                        temperature=0.8,
-                        max_tokens=150
-                    )
-                    reply = completion.choices[0].message.content
-              except Exception as e:
-                # Plasa de siguranță anti-cenzură
+                response = await ai_client.chat.completions.create(
+                    model=MODEL_AI,
+                    messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id],
+                    temperature=0.85
+                )
+                raspuns_ai = response.choices[0].message.content
+                
+                istoric_paraschiv[user_id].append({"role": "assistant", "content": raspuns_ai})
+                await message.reply(raspuns_ai)
+
+                # Trimitem răspunsul text direct pe canalul de voice
+                await vorbeste_pe_voce(bot, raspuns_ai)
+
+                except Exception as e: # <--- ASTA TREBUIE ALINIATĂ PERFECT CU TRY
                 eroare = str(e).lower()
-                print(f"EROARE API: {eroare}") # Asta îți va apărea în consola din Railway
+                print(f"EROARE API: {eroare}") 
                 
                 if "policy" in eroare or "blocked" in eroare or "moderation" in eroare:
                     await message.reply("*💀 Paraschiv pufnește, se uită urât la tine și refuză să comenteze. Las-o mai moale...*")
                 else:
-                    # Dacă e altă eroare, ți-o va scrie direct pe Discord ca să o putem repara!
                     await message.reply(f"🧠 (Eroare de la server: `{e}`. Mai zi o dată!)")
-                chat_sessions[npc_key].append({"role": "assistant", "content": reply})
-            
-                await message.reply(reply)
 
 bot.run(DISCORD_TOKEN)
