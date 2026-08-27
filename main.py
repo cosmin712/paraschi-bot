@@ -256,7 +256,7 @@ async def on_message(message):
                 response = await ai_client.chat.completions.create(
                     model=MODEL_AI,
                     messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id],
-                    temperature=0.85 # Îl face mai creativ
+                    temperature=0.85
                 )
                 raspuns_ai = response.choices[0].message.content
                 
@@ -268,11 +268,13 @@ async def on_message(message):
 
             except Exception as e:
                 # Plasa de siguranță anti-cenzură
-                if "policy" in str(e).lower() or "blocked" in str(e).lower():
+                eroare = str(e).lower()
+                print(f"EROARE API: {eroare}")
+                
+                if "policy" in eroare or "blocked" in eroare or "moderation" in eroare:
                     await message.reply("*💀 Paraschiv se uită lung la tine, roșește ușor și refuză să comenteze. Ești cam prea direct/ă pentru inima lui...*")
                 else:
-                    print(f"Eroare fatală Paraschiv: {e}")
-                    await message.reply("🧠 (Paraschiv e prea beat să răspundă, are o eroare la server. Mai zi o dată!)")
+                    await message.reply(f"🧠 (Eroare de la server: `{e}`. Mai zi o dată!)")
         return
 
     # --- 2. MODUL ROLEPLAY (Garrick & Angela) ---
@@ -321,26 +323,21 @@ async def on_message(message):
                 if len(chat_sessions[npc_key]) > 11:
                     chat_sessions[npc_key] = [chat_sessions[npc_key][0]] + chat_sessions[npc_key][-10:]
 
-            try:
-                response = await ai_client.chat.completions.create(
-                    model=MODEL_AI,
-                    messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id],
-                    temperature=0.85
-                )
-                raspuns_ai = response.choices[0].message.content
-                
-                istoric_paraschiv[user_id].append({"role": "assistant", "content": raspuns_ai})
-                await message.reply(raspuns_ai)
+                try:
+                    completion = await ai_client.chat.completions.create(
+                        model=MODEL_AI,
+                        messages=chat_sessions[npc_key],
+                        temperature=0.8,
+                        max_tokens=150
+                    )
+                    reply = completion.choices[0].message.content
+                except Exception as e:
+                    eroare = str(e).lower()
+                    print(f"EROARE API NPC: {eroare}")
+                    if "policy" in eroare or "blocked" in eroare or "moderation" in eroare:
+                        reply = "*(Se înroșește și se uită în altă parte, surprins/ă de tupeul tău...)*"
+                    else:
+                        reply = f"*(NPC-ul este distras. Eroare: `{e}`)*"
 
-                # Trimitem răspunsul text direct pe canalul de voice
-                await vorbeste_pe_voce(bot, raspuns_ai)
-
-            except Exception as e: # <--- ASTA TREBUIE ALINIATĂ PERFECT CU TRY
-                eroare = str(e).lower()
-                print(f"EROARE API: {eroare}") 
-                
-                if "policy" in eroare or "blocked" in eroare or "moderation" in eroare:
-                    await message.reply("*💀 Paraschiv pufnește, se uită urât la tine și refuză să comenteze. Las-o mai moale...*")
-                else:
-                    await message.reply(f"🧠 (Eroare de la server: `{e}`. Mai zi o dată!)")
-bot.run(DISCORD_TOKEN)
+                chat_sessions[npc_key].append({"role": "assistant", "content": reply})
+                await message.reply(reply)
