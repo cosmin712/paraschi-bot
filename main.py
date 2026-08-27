@@ -321,7 +321,7 @@ async def on_message(message):
                 if len(chat_sessions[npc_key]) > 11:
                     chat_sessions[npc_key] = [chat_sessions[npc_key][0]] + chat_sessions[npc_key][-10:]
 
-                try:
+            try:
                 response = await ai_client.chat.completions.create(
                     model=MODEL_AI,
                     messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id],
@@ -335,7 +335,7 @@ async def on_message(message):
                 # Trimitem răspunsul text direct pe canalul de voice
                 await vorbeste_pe_voce(bot, raspuns_ai)
 
-                except Exception as e: # <--- ASTA TREBUIE ALINIATĂ PERFECT CU TRY
+            except Exception as e: # <--- ASTA TREBUIE ALINIATĂ PERFECT CU TRY
                 eroare = str(e).lower()
                 print(f"EROARE API: {eroare}") 
                 
@@ -343,5 +343,4 @@ async def on_message(message):
                     await message.reply("*💀 Paraschiv pufnește, se uită urât la tine și refuză să comenteze. Las-o mai moale...*")
                 else:
                     await message.reply(f"🧠 (Eroare de la server: `{e}`. Mai zi o dată!)")
-
 bot.run(DISCORD_TOKEN)
