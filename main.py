@@ -22,7 +22,7 @@ ai_client = AsyncOpenAI(
 )
 
 # Numele modelului gratuit (îl poți schimba cu Sao10K dacă vrei extra spicy mai încolo)
-MODEL_AI = "meta-llama/llama-3.1-8b-instruct:free"
+MODEL_AI = "google/gemma-4-31b:free"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -329,14 +329,18 @@ async def on_message(message):
                         max_tokens=150
                     )
                     reply = completion.choices[0].message.content
-                except Exception as e:
-                    if "policy" in str(e).lower() or "blocked" in str(e).lower():
-                        reply = "*(Se înroșește și se uită în altă parte, surprins/ă de tupeul tău...)*"
-                    else:
-                        print(f"Eroare AI NPC: {e}")
-                        reply = "*(NPC-ul este distras și nu a auzit bine. Mai spune o dată!)*"
-
+              except Exception as e:
+                # Plasa de siguranță anti-cenzură
+                eroare = str(e).lower()
+                print(f"EROARE API: {eroare}") # Asta îți va apărea în consola din Railway
+                
+                if "policy" in eroare or "blocked" in eroare or "moderation" in eroare:
+                    await message.reply("*💀 Paraschiv pufnește, se uită urât la tine și refuză să comenteze. Las-o mai moale...*")
+                else:
+                    # Dacă e altă eroare, ți-o va scrie direct pe Discord ca să o putem repara!
+                    await message.reply(f"🧠 (Eroare de la server: `{e}`. Mai zi o dată!)")
                 chat_sessions[npc_key].append({"role": "assistant", "content": reply})
+            
                 await message.reply(reply)
 
 bot.run(DISCORD_TOKEN)
