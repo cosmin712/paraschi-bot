@@ -10,19 +10,19 @@ from gtts import gTTS
 # ⚙️ CONFIGURAȚIE
 # ==========================================
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-# Am schimbat cheia cu cea de la OpenRouter
+# Tragem cheia de OpenRouter direct din variabilele Railway
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") 
 
 ID_CANAL_VOCE = 1504452767467573361
 
-# Conectăm librăria la serverele OpenRouter în loc de OpenAI!
+# Conectăm clientul de AI la serverele OpenRouter
 ai_client = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY
 )
 
-# Numele modelului gratuit (îl poți schimba cu Sao10K dacă vrei extra spicy mai încolo)
-MODEL_AI = "google/gemma-4-31b:free"
+# Folosim modelul gratuit Google (dacă face figuri cu cenzura, poți pune "minimax/minimax-m3")
+MODEL_AI = "google/gemma-4-31b"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -56,7 +56,6 @@ async def vorbeste_pe_voce(bot_instance, text_spus):
             return
 
     try:
-        # Aici e super tare codul tău, filtrează automat steluțele (*smirks*) din TTS!
         text_curat = ''.join(c for c in text_spus if c.isalnum() or c.isspace() or c in ",.?!")
         if not text_curat.strip():
             return
@@ -181,7 +180,6 @@ async def on_voice_state_update(member, before, after):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def set_tavern(ctx):
-    # (Comanda a rămas neatinsă)
     conn = sqlite3.connect('rpg_shops.db')
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS bot_settings (setting_name TEXT PRIMARY KEY, setting_value TEXT)")
@@ -197,7 +195,6 @@ async def set_tavern(ctx):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def set_quest(ctx):
-    # (Comanda a rămas neatinsă)
     conn = sqlite3.connect('rpg_shops.db')
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS bot_settings (setting_name TEXT PRIMARY KEY, setting_value TEXT)")
@@ -235,7 +232,6 @@ async def on_message(message):
                     if any(rol.name.lower() in roluri_fete for rol in message.author.roles):
                         este_fata = True
 
-                # REGULILE DE FLIRT ȘI ROAST PENTRU PARASCHIV
                 mod_vorbire = "Fata cu care vorbești este o 'lady'/'darling'. Flirtează cu ea la greu, fii fermecător, jucăuș și fă aluzii subtile cu tentă (fără a fi extrem de explicit)." if este_fata else "Vorbești cu un tovarăș ('bro' / 'șefule'). Ești sarcastic, faci mișto de el și îl iei la rost, dar rămâi chill."
                 
                 personalitate = (
@@ -252,7 +248,6 @@ async def on_message(message):
                 istoric_paraschiv[user_id].append({"role": "user", "content": f"{message.author.name}: {mesaj_curat}"})
                 istoric_paraschiv[user_id] = istoric_paraschiv[user_id][-LIMITA_MESAJE:]
                 
-                # CERE RĂSPUNS DE LA OPENROUTER
                 response = await ai_client.chat.completions.create(
                     model=MODEL_AI,
                     messages=[{"role": "system", "content": personalitate}] + istoric_paraschiv[user_id],
@@ -263,16 +258,13 @@ async def on_message(message):
                 istoric_paraschiv[user_id].append({"role": "assistant", "content": raspuns_ai})
                 await message.reply(raspuns_ai)
 
-                # 🎙️ Trimitem răspunsul text direct pe canalul de voice!
                 await vorbeste_pe_voce(bot, raspuns_ai)
 
             except Exception as e:
-                # Plasa de siguranță anti-cenzură
                 eroare = str(e).lower()
-                print(f"EROARE API: {eroare}")
-                
+                print(f"EROARE API PARASCHIV: {eroare}")
                 if "policy" in eroare or "blocked" in eroare or "moderation" in eroare:
-                    await message.reply("*💀 Paraschiv se uită lung la tine, roșește ușor și refuză să comenteze. Ești cam prea direct/ă pentru inima lui...*")
+                    await message.reply("*💀 Paraschiv pufnește, se uită urât la tine și refuză să comenteze. Las-o mai moale...*")
                 else:
                     await message.reply(f"🧠 (Eroare de la server: `{e}`. Mai zi o dată!)")
         return
@@ -341,3 +333,8 @@ async def on_message(message):
 
                 chat_sessions[npc_key].append({"role": "assistant", "content": reply})
                 await message.reply(reply)
+
+if DISCORD_TOKEN:
+    bot.run(DISCORD_TOKEN)
+else:
+    print("❌ EROARE CRITICĂ: DISCORD_TOKEN nu este setat în Railway!")
